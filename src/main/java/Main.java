@@ -8,6 +8,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import java.util.function.Supplier;
@@ -40,7 +41,7 @@ public class Main {
     deleteFilesIfExist();
 
     StringBuilder countriesSql = new StringBuilder("INSERT INTO COUNTRIES VALUES ");
-    countries.forEach(country -> countriesSql.append("(\"").append(country.getCode()).append("\", \"").append(country.getName()).append("\"),"));
+    countries.forEach(country -> countriesSql.append("('").append(country.getCode()).append("', '").append(country.getName()).append("'),"));
 
     writeToFile("countries.sql", countriesSql);
     System.out.println("Created countries.sql");
@@ -59,7 +60,7 @@ public class Main {
               cells.getCell(CITY).getCellTypeEnum() == CellType.STRING &&
               cells.getCell(STATE_LONG) != null &&
               cells.getCell(STATE_LONG).getStringCellValue().equals(state.getName()))
-          .map(cells -> cells.getCell(CITY).getStringCellValue()).collect(Collectors.toList())));
+          .map(cells -> convertToUtf8(cells.getCell(CITY).getStringCellValue())).collect(Collectors.toList())));
     });
     System.out.println("Created map with all data");
 
@@ -68,12 +69,12 @@ public class Main {
       StringBuilder statesSql = new StringBuilder("INSERT INTO STATES VALUES ");
 
       stateListMap.forEach((state, cities) -> {
-        statesSql.append("(").append(state.getId()).append(",\"")
-          .append(state.getName()).append("\",").append("\"").append(country.getCode()).append("\"),");
+        statesSql.append("(").append(state.getId()).append(",'")
+          .append(state.getName()).append("',").append("'").append(country.getCode()).append("'),");
 
         System.out.println("Creating inserts for " + state);
         StringBuilder citiesSql = new StringBuilder("INSERT INTO CITIES VALUES ");
-        cities.forEach(s -> citiesSql.append("(\"").append(s).append("\",").append(state.getId()).append("),"));
+        cities.forEach(s -> citiesSql.append("('").append(s).append("',").append(state.getId()).append("),"));
 
         writeToFile("cities.sql", citiesSql);
         System.out.println("Appended data to cities.sql");
@@ -92,6 +93,15 @@ public class Main {
       e.printStackTrace();
     }
 
+  }
+
+  private static String convertToUtf8(String stringToConvert) {
+    return stringToConvert != null && !stringToConvert.isEmpty() ?
+        replaceAllSpecialCharacter(new String(stringToConvert.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8)): stringToConvert;
+  }
+
+  private static String replaceAllSpecialCharacter(String string) {
+    return string.replaceAll("'", "").replaceAll("\"", "");
   }
 
   private static void writeToFile(String filePath, StringBuilder sql) {
@@ -129,20 +139,20 @@ public class Main {
     return () -> null;
   }
 
-  public static final class Country {
+  private static final class Country {
     private String name;
     private String code;
 
-    public Country(String name, String code) {
-      this.name = name;
-      this.code = code;
+    Country(String name, String code) {
+      this.name = convertToUtf8(name);
+      this.code = convertToUtf8(code);
     }
 
-    public String getName() {
+    String getName() {
       return name;
     }
 
-    public String getCode() {
+    String getCode() {
       return code;
     }
 
@@ -166,21 +176,21 @@ public class Main {
     }
   }
 
-  public static final class State {
+  private static final class State {
     private static long idCounter = 0;
     private long id;
     private String name;
 
-    public State(String name) {
+    State(String name) {
       this.id = ++idCounter;
-      this.name = name;
+      this.name = convertToUtf8(name);
     }
 
-    public long getId() {
+    long getId() {
       return id;
     }
 
-    public String getName() {
+    String getName() {
       return name;
     }
 
